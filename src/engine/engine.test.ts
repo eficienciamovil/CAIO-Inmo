@@ -470,3 +470,10 @@ describe('Recuperación', () => {
     expect(o!).toBeLessThan(c!);
   });
 });
+
+describe('Índice cultural objetivo', () => {
+  it('conservador: el índice objetivo es 79,9', () => {
+    const r = simulate(DEFAULT_SCENARIOS[0]);
+    expect(Math.round(r.cultureIndex.target.value! * 10) / 10).toBe(79.9);
+  });
+});
