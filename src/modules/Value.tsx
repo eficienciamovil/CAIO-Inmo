@@ -19,6 +19,8 @@ export default function Value() {
   const H = active.general.horizonMonths;
   const rec = f.recovery;
   const extraYear = v.extraOperations * 12;
+  /** Resultado del primer año = beneficio bruto anual − (inversión inicial + OpEx anual). */
+  const year1Result = v.grossAnnual - c.costYear1;
 
   const rows: [string, (s: typeof v.baseline) => number, 'num' | 'usd' | 'h'][] = [
     ['Consultas atendidas / mes', (s) => s.inquiriesHandled, 'num'],
@@ -34,12 +36,27 @@ export default function Value() {
         Beneficio bruto = ventas adicionales × contribución por venta. Beneficio neto = beneficio bruto − OpEx anual. Valores antes de impuestos, salvo indicación.
       </PageHeader>
 
+      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Operación anual · sin inversión inicial (año 2 en adelante)</h3>
       <Grid cols={5}>
         <Kpi label="Beneficio bruto anual" value={fmtUSD(v.grossAnnual, false)} period="anual" explain={r.explain.beneficioBruto} hint={v.mode === 'presentacion' ? 'diap. 9' : `${fmtNum(extraYear)} ventas × ${fmtUSD(v.margin, false)}`} />
         <Kpi label="OpEx anual" value={fmtUSD(c.opexAnnualSteady, false)} period="anual" explain={r.explain.opexMensual} />
         <Kpi label="Beneficio neto anual" value={fmtUSD(f.netAnnualSteady, false)} period="anual" explain={r.explain.beneficioNeto} tone={classifyResult(f.netAnnualSteady)} hint="bruto − OpEx" />
         <Kpi label="Recuperación" value={f.paybackMonth === null ? `> ${H} meses` : `${f.paybackMonth} meses`} explain={r.explain.payback} tone={f.paybackMonth === null ? 'perdida' : 'ganancia'} />
         <Kpi label={`ROI a ${H} meses`} value={fmtPct(f.roiHorizon)} explain={r.explain.roi} tone={classifyResult(f.roiHorizon)} />
+      </Grid>
+
+      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Primer año · con inversión inicial</h3>
+      <Grid cols={4}>
+        <Kpi label="Beneficio bruto año 1" value={fmtUSD(v.grossAnnual, false)} period="anual" hint={`${fmtNum(extraYear)} ventas × ${fmtUSD(v.margin, false)}`} />
+        <Kpi
+          label="Costo total año 1"
+          value={fmtUSD(c.costYear1, false)}
+          period="anual"
+          explain={r.explain.costoAnio1}
+          hint={`${fmtUSD(c.initialInvestment, false)} inversión + ${fmtUSD(c.opexAnnualSteady, false)} OpEx`}
+        />
+        <Kpi label="Resultado año 1" value={fmtUSD(year1Result, false)} period="anual" tone={classifyResult(year1Result)} hint="bruto − (inversión + OpEx)" />
+        <Kpi label="ROI año 1" value={fmtPct(c.costYear1 > 0 ? (year1Result / c.costYear1) * 100 : null)} tone={classifyResult(year1Result)} hint="resultado / costo total año 1" />
       </Grid>
 
       <Card
