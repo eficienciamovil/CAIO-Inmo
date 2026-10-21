@@ -1,5 +1,6 @@
+import { Fragment } from 'react';
 import { useStore } from '../state/store';
-import { Card, CellNumber, CellText, Grid, Kpi, Money, Note, NumberField, PageHeader, Select, STATUS_OPTIONS, Stat, Table, Toggle, statusLabel } from '../components/ui';
+import { Card, CellNumber, CellText, Money, Note, NumberField, PageHeader, Select, STATUS_OPTIONS, Stat, Table, Toggle, statusLabel } from '../components/ui';
 import { LIMITS } from '../engine/simulate';
 import { WA_CATEGORIES, WA_LABELS, isRateUsable } from '../engine/whatsapp';
 import { fmtNum, fmtUSD } from '../engine/money';
@@ -33,13 +34,34 @@ export default function VariableCosts() {
         "por sucursal", activado explícitamente, calcula llamadas × sucursales.
       </PageHeader>
 
-      <Grid cols={5}>
-        <Kpi label="Minutos IA" value={fmtNum(vr.totalAIMin)} period="mensual" hint={`${fmtNum(vr.inboundAIMin)} entr. · ${fmtNum(vr.outboundAIMin)} sal.`} />
-        <Kpi label="Costo mensual de voz" value={fmtUSD(vr.variableTotal)} period="mensual" explain={r.explain.llamadas} />
-        <Kpi label="Costo anual de llamadas" value={fmtUSD(vr.variableTotal * 12)} period="anual" hint="régimen × 12" />
-        <Kpi label="WhatsApp" value={fmtUSD(r.whatsapp.total)} period="mensual" hint={`${fmtNum(r.whatsapp.billableMessages)} msj. facturables`} />
-        <Kpi label="Variables totales" value={fmtUSD(r.consolidated.variableMonthly)} period="mensual" />
-      </Grid>
+      <section className="card rounded-xl border border-gold-500/40 bg-ink-900/80 p-5">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-base font-semibold text-white">Total de costos variables por año</h3>
+          <p className="text-xs text-zinc-400">Este total es el que figura como "Costos variables" en el Consolidador.</p>
+        </div>
+        <div className="grid items-stretch gap-3 text-center md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1.2fr]">
+          {[
+            { label: 'Voz (Retell)', annual: vr.variableTotal * 12, detail: `${fmtNum(vr.totalAIMin)} min/mes × USD ${active.voice.retellPerMin}` },
+            { label: 'WhatsApp', annual: r.whatsapp.total * 12, detail: `${fmtNum(r.whatsapp.billableMessages)} mensajes facturables/mes` },
+            { label: 'LLM y almacenamiento', annual: r.otherVariableMonthly * 12, detail: 'consumo de modelos + almacenamiento' },
+          ].map((x, i) => (
+            <Fragment key={x.label}>
+              {i > 0 && <span className="self-center text-2xl text-gold-400">+</span>}
+              <div className="rounded-lg border border-ink-700 p-3">
+                <p className="text-xs uppercase tracking-wider text-zinc-400">{x.label}</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{fmtUSD(x.annual, false)}</p>
+                <p className="text-xs text-zinc-500">{fmtUSD(x.annual / 12)}/mes · {x.detail}</p>
+              </div>
+            </Fragment>
+          ))}
+          <span className="self-center text-2xl text-gold-400">=</span>
+          <div className="rounded-lg border border-gold-500/60 bg-gold-500/10 p-3">
+            <p className="text-xs uppercase tracking-wider text-gold-300">Total variables</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums text-gold-300">{fmtUSD(r.consolidated.variableMonthly * 12, false)}</p>
+            <p className="text-xs text-zinc-400">/año · {fmtUSD(r.consolidated.variableMonthly)}/mes × 12</p>
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card title="Volumen y organización">
@@ -76,7 +98,7 @@ export default function VariableCosts() {
           <Toggle checked={v.enabled} onChange={(x) => vo({ enabled: x })} label="Canal de voz habilitado" />
         </Card>
 
-        <Card title="Retell AI · tarifa y cargos" subtitle="USD 0,159/min según la captura del panel de Retell. No duplicar componentes ya incluidos en esa tarifa.">
+        <Card title="Retell AI · tarifa y cargos" subtitle="Tarifa por minuto según el panel de Retell. No duplicar componentes ya incluidos en esa tarifa.">
           <NumberField label="Tarifa Retell" unit="USD/min" value={v.retellPerMin} min={0} max={2} step={0.001} status="confirmado" onChange={(x) => vo({ retellPerMin: x })} />
           <div className="grid gap-x-4 md:grid-cols-2">
             <NumberField label="Telefonía entrante" unit="USD/min" value={v.telephonyInboundPerMin} min={0} max={1} step={0.001} onChange={(x) => vo({ telephonyInboundPerMin: x })} hint="Sólo si no está en la tarifa" />

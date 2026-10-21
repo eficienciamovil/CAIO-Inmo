@@ -477,3 +477,15 @@ describe('Índice cultural objetivo', () => {
     expect(Math.round(r.cultureIndex.target.value! * 10) / 10).toBe(79.9);
   });
 });
+
+describe('Sumas visibles (redondeadas a dólares)', () => {
+  it('voz + WhatsApp + LLM = 7.017 y fijos + semifijos + variables = 22.000', () => {
+    const r = simulate(DEFAULT_SCENARIOS[0]);
+    const c = r.consolidated;
+    const vars = [r.voice.variableTotal, r.whatsapp.total, r.otherVariableMonthly].map((x) => Math.round(x * 12));
+    expect(vars.reduce((a, b) => a + b, 0)).toBe(Math.round(c.variableMonthly * 12));
+    expect(Math.round(c.variableMonthly * 12)).toBe(7017);
+    const opex = [c.fixedMonthly, c.semifixedMonthly, c.variableMonthly].map((x) => Math.round(x * 12));
+    expect(opex.reduce((a, b) => a + b, 0)).toBe(22000);
+  });
+});

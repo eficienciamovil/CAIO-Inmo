@@ -158,7 +158,7 @@ export const BASE_SCENARIO: ScenarioInput = {
   otherVariable: {
     llmPer1kInteractions: 5,
     transcriptionPerMin: 0,
-    storageMonthly: 5,
+    storageMonthly: 4.95,
   },
   rollout: {
     whatsappStartMonth: 1,
