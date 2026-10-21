@@ -6,8 +6,21 @@ import { DEFAULT_SCENARIOS } from '../data/scenarios';
 const STORAGE_KEY = 'inmo-ia-simulador:v1';
 const SCHEMA_VERSION = 2;
 
+/**
+ * Huella de los valores por defecto del código. Si cambian (nueva versión publicada),
+ * los escenarios guardados en el navegador se descartan y se cargan los nuevos.
+ */
+function fingerprint(x: unknown): string {
+  const str = JSON.stringify(x);
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+const DEFAULTS_FINGERPRINT = fingerprint(DEFAULT_SCENARIOS);
+
 interface Persisted {
   version: number;
+  defaults?: string;
   scenarios: ScenarioInput[];
   activeId: string;
   savedAt: string;
@@ -37,7 +50,7 @@ function load(): Persisted | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw) as Persisted;
-    if (p.version !== SCHEMA_VERSION || !Array.isArray(p.scenarios) || p.scenarios.length === 0) return null;
+    if (p.version !== SCHEMA_VERSION || p.defaults !== DEFAULTS_FINGERPRINT || !Array.isArray(p.scenarios) || p.scenarios.length === 0) return null;
     // Validación mínima: cada escenario debe poder simularse.
     p.scenarios.forEach((s) => simulate(s));
     return p;
@@ -69,7 +82,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const t = setTimeout(() => {
       const now = new Date().toISOString();
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: SCHEMA_VERSION, scenarios, activeId, savedAt: now } satisfies Persisted));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: SCHEMA_VERSION, defaults: DEFAULTS_FINGERPRINT, scenarios, activeId, savedAt: now } satisfies Persisted));
         setSavedAt(now);
       } catch {
         // almacenamiento no disponible: la app sigue funcionando en memoria
