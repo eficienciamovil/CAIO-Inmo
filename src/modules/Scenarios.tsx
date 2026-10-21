@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useStore } from '../state/store';
 import { Button, Card, Money, PageHeader, Select, Table, NumberField } from '../components/ui';
@@ -32,18 +32,51 @@ export default function Scenarios() {
     return row;
   });
 
-  const metrics: [string, (r: ScenarioResult) => string, ((r: ScenarioResult) => number | null)?][] = [
-    ['Inversión inicial', (r) => fmtUSD(r.consolidated.initialInvestment, false)],
-    ['OpEx anual (fijos + semifijos + variables)', (r) => fmtUSD(r.consolidated.opexAnnualSteady, false)],
-    ['Costo total año 1', (r) => fmtUSD(r.consolidated.costYear1, false)],
-    ['Crecimiento de ventas por IA', (r) => fmtPct(r.input.value.salesGrowthPct)],
-    ['Ventas adicionales por año', (r) => fmtNum(r.value.extraOperations * 12)],
-    ['Contribución por venta (antes de impuestos)', (r) => fmtUSD(r.value.margin, false)],
-    ['Beneficio bruto anual', (r) => fmtUSD(r.value.grossAnnual, false)],
-    ['Beneficio neto anual (bruto − OpEx)', (r) => fmtUSD(r.finance.netAnnualSteady, false), (r) => r.finance.netAnnualSteady],
-    ['Ventas para recuperar el año 1 (antes / después de impuestos)', (r) => `${r.finance.recovery.salesPreTax ?? 'n/d'} / ${r.finance.recovery.salesAfterTax ?? 'n/d'}`],
-    ['Recuperación', (r) => (r.finance.paybackMonth === null ? 'no se recupera' : `${r.finance.paybackMonth} meses`)],
-    ['ROI acumulado', (r) => `${fmtPct(r.finance.roiHorizon)} (${r.input.general.horizonMonths} meses)`, (r) => r.finance.roiHorizon],
+  type Metric = [string, (r: ScenarioResult) => string, ((r: ScenarioResult) => number | null)?];
+  const year1Result = (r: ScenarioResult) => r.value.grossAnnual - r.consolidated.costYear1;
+  const groups: { title: string; subtitle: string; rows: Metric[] }[] = [
+    {
+      title: 'Supuestos comunes',
+      subtitle: 'Iguales en los dos escenarios salvo el crecimiento de ventas',
+      rows: [
+        ['Crecimiento de ventas por IA', (r) => fmtPct(r.input.value.salesGrowthPct)],
+        ['Ventas adicionales por año', (r) => fmtNum(r.value.extraOperations * 12)],
+        ['Contribución por venta (antes de impuestos)', (r) => fmtUSD(r.value.margin, false)],
+        ['Beneficio bruto anual', (r) => fmtUSD(r.value.grossAnnual, false)],
+      ],
+    },
+    {
+      title: 'Con inversión inicial · primer año',
+      subtitle: 'Beneficio bruto − (inversión inicial + OpEx anual)',
+      rows: [
+        ['Inversión inicial', (r) => fmtUSD(r.consolidated.initialInvestment, false)],
+        ['OpEx anual', (r) => fmtUSD(r.consolidated.opexAnnualSteady, false)],
+        ['Costo total año 1', (r) => fmtUSD(r.consolidated.costYear1, false)],
+        ['Beneficio bruto año 1', (r) => fmtUSD(r.value.grossAnnual, false)],
+        ['Resultado año 1', (r) => fmtUSD(year1Result(r), false), year1Result],
+        ['ROI año 1', (r) => fmtPct(r.consolidated.costYear1 > 0 ? (year1Result(r) / r.consolidated.costYear1) * 100 : null), year1Result],
+        ['Ventas para recuperar el año 1 (antes / después de impuestos)', (r) => `${r.finance.recovery.salesPreTax ?? 'n/d'} / ${r.finance.recovery.salesAfterTax ?? 'n/d'}`],
+      ],
+    },
+    {
+      title: 'Sin inversión inicial · operación anual (año 2 en adelante)',
+      subtitle: 'Beneficio bruto − OpEx anual',
+      rows: [
+        ['OpEx anual', (r) => fmtUSD(r.consolidated.opexAnnualSteady, false)],
+        ['Beneficio bruto anual', (r) => fmtUSD(r.value.grossAnnual, false)],
+        ['Beneficio neto anual', (r) => fmtUSD(r.finance.netAnnualSteady, false), (r) => r.finance.netAnnualSteady],
+        ['ROI operativo anual (neto / OpEx)', (r) => fmtPct(r.consolidated.opexAnnualSteady > 0 ? (r.finance.netAnnualSteady / r.consolidated.opexAnnualSteady) * 100 : null), (r) => r.finance.netAnnualSteady],
+      ],
+    },
+    {
+      title: `Acumulado ${H} meses · inversión + operación`,
+      subtitle: 'Serie mensual completa: incluye la inversión y el OpEx de todos los meses',
+      rows: [
+        ['Recuperación de la inversión', (r) => (r.finance.paybackMonth === null ? 'no se recupera' : `${r.finance.paybackMonth} meses`)],
+        ['Resultado acumulado', (r) => fmtUSD(r.finance.netHorizon, false), (r) => r.finance.netHorizon],
+        ['ROI acumulado', (r) => fmtPct(r.finance.roiHorizon), (r) => r.finance.roiHorizon],
+      ],
+    },
   ];
 
   return (
@@ -80,18 +113,28 @@ export default function Scenarios() {
               </td>
             ))}
           </tr>
-          {metrics.map(([label, get, raw]) => (
-            <tr key={label}>
-              <td className="px-2 py-1.5 text-zinc-300">{label}</td>
-              {list.map((r) => {
-                const v = raw?.(r);
-                return (
-                  <td key={r.input.id} className={`whitespace-nowrap px-2 text-right tabular-nums ${v !== undefined && v !== null && v < 0 ? 'text-red-400' : 'text-zinc-100'}`}>
-                    {get(r)}
-                  </td>
-                );
-              })}
-            </tr>
+          {groups.map((g) => (
+            <Fragment key={g.title}>
+              <tr className="border-t-2 border-gold-500/40">
+                <td colSpan={list.length + 1} className="px-2 pb-1 pt-4">
+                  <p className="text-sm font-semibold text-gold-300">{g.title}</p>
+                  <p className="text-xs text-zinc-500">{g.subtitle}</p>
+                </td>
+              </tr>
+              {g.rows.map(([label, get, raw]) => (
+                <tr key={`${g.title}-${label}`}>
+                  <td className="px-2 py-1.5 text-zinc-300">{label}</td>
+                  {list.map((r) => {
+                    const v = raw?.(r);
+                    return (
+                      <td key={r.input.id} className={`whitespace-nowrap px-2 text-right tabular-nums ${v !== undefined && v !== null && v < -0.005 ? 'text-red-400' : 'text-zinc-100'}`}>
+                        {get(r)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </Fragment>
           ))}
         </Table>
         <div className="mt-3 grid gap-2 text-xs text-zinc-500 md:grid-cols-3">
