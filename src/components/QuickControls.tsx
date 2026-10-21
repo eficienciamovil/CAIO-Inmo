@@ -46,7 +46,7 @@ export default function QuickControls() {
             onChange={(v) => update((s) => { s.culture.indicators.find((i) => i.id === 'uso_activo')!.target = v; })}
           />
         )}
-        <NumberField label="Margen por operación" unit="USD" value={active.value.marginPerOperation} min={0} max={10000} step={50} slider onChange={(v) => update((s) => { s.value.marginPerOperation = v; })} />
+        <NumberField label="Crecimiento de ventas por IA" unit="%" value={active.value.salesGrowthPct} min={0} max={20} step={0.5} slider hint={`${(active.value.salesPerBranchMonthly * active.general.branches * 12 * active.value.salesGrowthPct / 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })} ventas adicionales/año`} onChange={(v) => update((s) => { s.value.salesGrowthPct = v; })} />
       </div>
     </Card>
   );

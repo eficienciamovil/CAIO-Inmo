@@ -54,17 +54,26 @@ Los minutos incluidos de ElevenLabs se aplican solo a los minutos cuya voz factu
 
 **Otros variables**: LLM (USD por cada 1.000 interacciones IA), transcripción por minuto y almacenamiento.
 
-**Rampa**: cada canal arranca en su mes configurado y alcanza el volumen pleno en *n* meses. Por eso el **costo del año 1 es la suma de los 12 meses de la serie** y no el OpEx mensual × 12.
+**Rampa**: cada canal arranca en su mes configurado y alcanza el volumen pleno en *n* meses. Esto afecta la serie de caja. En los escenarios por defecto todo arranca en el mes 1, así que la caja del año 1 coincide con el presupuesto (25.000 + 22.000).
 
 ## 2. Consolidador
 
 - OpEx mensual (régimen) = Fijos + Semifijos + Variables.
-- Costo año 1 = Σ meses 1–12 (inversión + OpEx).
+- **Costo año 1 = inversión inicial + OpEx anual** (criterio presupuestario). La serie mensual (caja) se usa para la recuperación, el ROI, el VAN y la TIR.
 - TCO = Σ de los meses del horizonte.
 - Indicadores unitarios: costo por sucursal y por empleado (año 1), por llamada atendida por IA, por lead útil y por visita (OpEx mensual / volumen mensual con IA).
 - Todos los cocientes usan división segura: si el divisor es 0 se muestra "n/d", nunca infinito.
 
 ## 3. Valor económico
+
+**Modo por defecto: crecimiento de ventas (informe AMBA)**
+
+- Contribución por venta = precio × comisión × (1 − costos variables); con los valores del informe, 120.000 × 5% × 75% = 4.500. Después del impuesto supuesto del 35%: 2.925.
+- Ventas adicionales/año = ventas por sucursal/mes × sucursales × 12 × % de crecimiento.
+- Beneficio bruto = ventas adicionales × contribución.
+- Ventas para recuperar el año 1 = ⌈costo año 1 / contribución⌉, antes y después de impuestos (11 y 17 con 47.000).
+
+**Modo embudo** (alternativo)
 
 **Consultas** = llamadas entrantes + conversaciones entrantes de WhatsApp.
 
@@ -128,7 +137,7 @@ Los minutos incluidos de ElevenLabs se aplican solo a los minutos cuya voz factu
 
 ## 7. Tests
 
-`npm test` ejecuta `src/engine/engine.test.ts`, con 45 casos. Cubren:
+`npm test` ejecuta `src/engine/engine.test.ts`, con 51 casos. Cubren:
 
 - el caso de control: 3.400 min × 0,159 = USD 540,60/mes y USD 6.487,20/año; capacitación 50 × 50 = USD 2.500;
 - doble facturación de Retell y ElevenLabs;

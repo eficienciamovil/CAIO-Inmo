@@ -38,11 +38,11 @@ Otros comandos:
 
 ## Uso durante la presentación
 
-- **Dashboard**: el panel "Simulación en vivo" tiene los sliders principales (empleados, sucursales, llamadas, % IA, tarifa Retell, adopción y margen). Las tarjetas siguen el orden *cuánto cuesta → cuánto valor genera → qué transformación produce*.
+- **Dashboard**: el panel "Simulación en vivo" tiene los sliders principales (empleados, sucursales, llamadas, % IA, tarifa Retell, adopción y crecimiento de ventas). Las tarjetas siguen el orden *cuánto cuesta → cuánto valor genera → qué transformación produce*.
 - **Clic en un indicador**: abre un panel con la fórmula y los valores de entrada ("¿De dónde sale este número?").
-- **Selector "Escenario"** (arriba a la derecha): cambia entre Conservador, Base y Optimista. Cada escenario guarda sus propios parámetros.
+- **Selector "Escenario"** (arriba a la derecha): cambia entre Conservador (+2,5% de ventas) y Optimista (+5%). Los dos tienen el mismo costo: 25.000 + 22.000 = 47.000 en el año 1.
 - **Gobernanza**: los botones "Piloto exitoso / con desvíos / con incidente grave" cargan mediciones de demostración y muestran en vivo la decisión Escalar, Corregir o Suspender.
-- **Rentabilidad**: el selector "Cifras de la presentación" muestra los USD 30.000 de la diapositiva 9 y su neto real después del OpEx.
+- **Rentabilidad**: muestra cuántas ventas adicionales hacen falta para recuperar el año 1 (11 antes y 17 después de impuestos, como en el informe AMBA). También permite cambiar el origen del beneficio: crecimiento de ventas, embudo de consultas o cifras de la presentación.
 - **Exportar**:
   - **CSV** descarga los resultados del escenario activo, listos para Excel (separador `;` y coma decimal).
   - **PDF** abre el diálogo de impresión; elegí "Guardar como PDF".
@@ -73,8 +73,8 @@ src/
     alerts.ts        Alertas del dashboard
     engine.test.ts   Tests
   data/
-    defaults.ts      PARÁMETROS INICIALES EDITABLES (escenario Base)
-    scenarios.ts     Conservador / Base / Optimista
+    defaults.ts      PARÁMETROS INICIALES EDITABLES
+    scenarios.ts     Conservador / Optimista
     referencia.ts    Cifras de la presentación (hipótesis originales)
   state/store.tsx    Estado global y persistencia en localStorage
   components/        UI y gráficos

@@ -84,7 +84,10 @@ export interface Consolidated {
   opexMonthly: number;
   opexAnnualSteady: number;
   opexYear1: number;
+  /** Presupuesto del año 1 = inversión inicial + OpEx anual. */
   costYear1: number;
+  /** Desembolso de caja de los meses 1–12 según la serie (arranques, rampas y fechas). */
+  cashYear1: number;
   cost3Years: number;
   costHorizon: number;
   costPerBranchYear1: number | null;
@@ -110,6 +113,33 @@ export interface FinanceResult {
   irr: number | null;
   breakEven: BreakEvenAnswer;
   opsToCoverOpexMonthly: number | null;
+  recovery: RecoveryAnswer;
+}
+
+/** Ventas adicionales necesarias para recuperar el costo del año 1 (criterio del informe AMBA). */
+export interface RecoveryAnswer {
+  target: number;
+  marginPreTax: number;
+  marginAfterTax: number;
+  salesPreTax: number | null;
+  salesAfterTax: number | null;
+  months: number;
+  salesPerYearAfterTax: number | null;
+}
+
+export function salesToRecover(target: number, margin: number, marginAfterTax: number, months: number): RecoveryAnswer {
+  const pre = safeDiv(target, margin);
+  const post = safeDiv(target, marginAfterTax);
+  const salesAfterTax = post === null ? null : Math.ceil(post - 1e-9);
+  return {
+    target,
+    marginPreTax: margin,
+    marginAfterTax,
+    salesPreTax: pre === null ? null : Math.ceil(pre - 1e-9),
+    salesAfterTax,
+    months,
+    salesPerYearAfterTax: salesAfterTax === null ? null : Math.ceil(salesAfterTax / (months / 12)),
+  };
 }
 
 export interface DataQuality {
@@ -161,6 +191,7 @@ export function simulate(raw: ScenarioInput): ScenarioResult {
     waAiPct: input.whatsapp.enabled ? input.whatsapp.aiCoveragePct : 0,
     transferPct: input.voice.humanTransferPct,
     adoptionPct: adoption.value,
+    branches: general.branches,
   });
 
   // ───── Serie mensual ─────
@@ -184,7 +215,8 @@ export function simulate(raw: ScenarioInput): ScenarioResult {
     const trainingInitial = m === input.training.month ? training.initialCounted : 0;
     const oneOff = fixed.oneOffInMonth(m);
     const { fixed: fixedM, semifixed } = fixed.recurringInMonth(m);
-    const trainingRecurring = m > input.training.month ? training.recurringMonthly : 0;
+    // Capacitación recurrente (refuerzos y rotación): presupuesto anual prorrateado desde el mes 1.
+    const trainingRecurring = training.recurringMonthly;
     const capexRecurring = capex.recurringByMonth(m);
     const voiceLive = input.voice.enabled && m >= rollout.voiceStartMonth;
     const eleven = voiceLive || (!input.voice.enabled && input.eleven.subscriptionActive && m >= rollout.voiceStartMonth)
@@ -235,7 +267,7 @@ export function simulate(raw: ScenarioInput): ScenarioResult {
   const semifixedMonthly = fixed.semifixedMonthly + training.recurringMonthly + capex.recurringMonthly;
   const opexMonthly = fixedMonthly + semifixedMonthly + variableMonthly;
   const y1 = slice(12);
-  const costYear1 = sumOf(y1, 'totalCost');
+  const cashYear1 = sumOf(y1, 'totalCost');
   const opexYear1 = sumOf(y1, 'opex');
   const cost3Years = sumOf(slice(36), 'totalCost');
   const costHorizon = sumOf(slice(H), 'totalCost');
@@ -248,11 +280,12 @@ export function simulate(raw: ScenarioInput): ScenarioResult {
     opexMonthly,
     opexAnnualSteady: opexMonthly * 12,
     opexYear1,
-    costYear1,
+    costYear1: initialInvestment + opexMonthly * 12,
+    cashYear1,
     cost3Years,
     costHorizon,
-    costPerBranchYear1: safeDiv(costYear1, general.branches),
-    costPerEmployeeYear1: safeDiv(costYear1, general.employees),
+    costPerBranchYear1: safeDiv(initialInvestment + opexMonthly * 12, general.branches),
+    costPerEmployeeYear1: safeDiv(initialInvestment + opexMonthly * 12, general.employees),
     costPerAICall: safeDiv(voice.variableTotal, aiCalls),
     costPerUsefulLead: safeDiv(opexMonthly, value.withAI.usefulLeads),
     costPerVisit: safeDiv(opexMonthly, value.withAI.visits),
@@ -280,15 +313,16 @@ export function simulate(raw: ScenarioInput): ScenarioResult {
     costsHorizon: costHorizon,
     netHorizon: benefitsHorizon - costHorizon,
     roiHorizon: roi(benefitsHorizon, costHorizon),
-    roiYear1: roi(benefitsYear1, costYear1),
+    roiYear1: roi(benefitsYear1, cashYear1),
     benefitsYear1,
-    netYear1: benefitsYear1 - costYear1,
+    netYear1: benefitsYear1 - cashYear1,
     netAnnualSteady: value.grossAnnual - consolidated.opexAnnualSteady,
     paybackMonth: paybackMonth(netFlows),
     npv: npv(general.discountRateAnnualPct, netFlows),
     irr: irrAnnual(netFlows),
-    breakEven: breakEven(costHorizon, nonCommercialHorizon, input.value.marginPerOperation, H),
-    opsToCoverOpexMonthly: safeDiv(opexMonthly, input.value.marginPerOperation),
+    breakEven: breakEven(costHorizon, nonCommercialHorizon, value.margin, H),
+    opsToCoverOpexMonthly: safeDiv(opexMonthly, value.margin),
+    recovery: salesToRecover(consolidated.costYear1, value.margin, value.marginAfterTax, H),
   };
 
   const cultureIndex = {
@@ -300,7 +334,7 @@ export function simulate(raw: ScenarioInput): ScenarioResult {
   const decision = gateDecision(input.governance.criteria);
   const dataQuality = assessDataQuality(input, { capex, fixed, voice, whatsapp, training, drivers });
   const confirmedCost = sum(dataQuality.unconfirmed.map((u) => u.amount));
-  dataQuality.confirmedShareYear1 = costYear1 > 0 ? Math.max(0, 1 - confirmedCost / costYear1) * 100 : null;
+  dataQuality.confirmedShareYear1 = consolidated.costYear1 > 0 ? Math.max(0, 1 - confirmedCost / consolidated.costYear1) * 100 : null;
 
   const result: ScenarioResult = {
     input, capex, fixed, training, voice, whatsapp, otherVariableMonthly, value, adoption, cultureIndex,
@@ -381,12 +415,11 @@ function buildExplanations(r: ScenarioResult): Record<string, Explanation> {
       value: c.costYear1,
       unit: 'usd',
       period: 'anual',
-      formula: 'Σ meses 1–12 de (Inversión + OpEx). No es OpEx × 12: respeta arranque de canales, rampa y fechas de capacitación.',
+      formula: 'Costo año 1 = Inversión inicial + OpEx anual (fijos + semifijos + variables)',
       inputs: [
-        { label: 'Inversión del año 1', value: fmtUSD(sum(r.months.slice(0, 12).map((m) => m.investment))) },
-        { label: 'OpEx acumulado meses 1–12', value: fmtUSD(c.opexYear1) },
-        { label: 'Referencia: OpEx en régimen × 12', value: fmtUSD(c.opexAnnualSteady) },
-        { label: 'Arranque WhatsApp / voz', value: `mes ${input.rollout.whatsappStartMonth} / mes ${input.rollout.voiceStartMonth}` },
+        { label: 'Inversión inicial', value: fmtUSD(c.initialInvestment) },
+        { label: 'OpEx anual', value: fmtUSD(c.opexAnnualSteady) },
+        { label: 'Desembolso de caja meses 1–12 (serie mensual)', value: fmtUSD(c.cashYear1) },
       ],
       status: 'proyeccion',
     },
@@ -397,8 +430,12 @@ function buildExplanations(r: ScenarioResult): Record<string, Explanation> {
       period: 'anual',
       formula: v.mode === 'presentacion'
         ? 'Cifras de la diapositiva 9: USD 18.000 (horas operativas) + USD 12.000 (leads fuera de horario). Beneficio BRUTO, antes de OpEx.'
-        : '12 × [Ahorro evitable + Capacidad monetizada + Contribución incremental] × factor de adopción',
+        : v.mode === 'crecimiento'
+          ? 'Ventas adicionales/año × contribución por venta. Ventas adicionales = ventas por sucursal/mes × sucursales × 12 × % crecimiento. Contribución = precio × comisión × (1 − costos variables).'
+          : '12 × [Ahorro evitable + Capacidad monetizada + Contribución incremental] × factor de adopción',
       inputs: [
+        { label: 'Ventas adicionales por año', value: fmtNum(v.extraOperations * 12) },
+        { label: 'Contribución por venta (antes de impuestos)', value: fmtUSD(v.margin, false) },
         { label: 'Ahorro evitable mensual', value: fmtUSD(v.avoidableSavingsMonthly) },
         { label: 'Capacidad liberada monetizada mensual', value: fmtUSD(v.capacityMonetizedMonthly) },
         { label: 'Contribución incremental mensual', value: fmtUSD(v.contributionMonthly) },

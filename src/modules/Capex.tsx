@@ -69,9 +69,9 @@ export default function Capex() {
           />
           <NumberField label="Meses de amortización" value={active.general.amortizationMonths} min={1} max={120} onChange={(v) => update((s) => { s.general.amortizationMonths = v; })} />
           <div className="text-sm text-zinc-400">
-            Gasto contable año 1: <span className="font-semibold text-white">{fmtUSD(r.consolidated.accountingYear1)}</span>
+            Gasto contable año 1: <span className="font-semibold text-white">{fmtUSD(r.consolidated.accountingYear1, false)}</span>
             <br />
-            Desembolso de caja año 1: <span className="font-semibold text-white">{fmtUSD(r.consolidated.costYear1)}</span>
+            Desembolso de caja año 1: <span className="font-semibold text-white">{fmtUSD(r.consolidated.costYear1, false)}</span>
           </div>
         </div>
       </Card>
@@ -121,7 +121,18 @@ export default function Capex() {
             }
           >
             <Table head={['Actividad', 'Horas', 'Tarifa/h', 'Externos', 'Costo', 'Responsable', 'Mes', 'Tipo', 'Formación', 'Estado', '']}>
-              {acts.map((a) => {
+              {withSubtotals(acts).map((item) => {
+                if (item.kind === 'subtotal') {
+                  return (
+                    <tr key={`sub-${item.label}`} className={`bg-gold-500/5 ${item.last ? '' : 'border-b-2 border-gold-500/50'}`}>
+                      <td className="px-2 py-2 text-sm font-semibold text-gold-300">Subtotal · {item.label}</td>
+                      <td colSpan={3} />
+                      <td className="whitespace-nowrap px-2 text-right font-semibold text-gold-300"><Money value={item.total} /></td>
+                      <td colSpan={6} />
+                    </tr>
+                  );
+                }
+                const a = item.a;
                 const excluded = a.isTraining && !active.training.includedInCapex;
                 return (
                   <tr key={a.id} className={excluded ? 'opacity-40' : ''}>
@@ -156,4 +167,19 @@ export default function Capex() {
       })}
     </div>
   );
+}
+
+type Row = { kind: 'act'; a: CapexActivity } | { kind: 'subtotal'; label: string; total: number; last: boolean };
+
+/** Si la etapa tiene subgrupos, intercala un subtotal después de cada uno (en el orden de las partidas). */
+function withSubtotals(acts: CapexActivity[]): Row[] {
+  const labels = Array.from(new Set(acts.map((a) => a.subgroup ?? '')));
+  if (labels.length <= 1) return acts.map((a) => ({ kind: 'act', a }));
+  const rows: Row[] = [];
+  labels.forEach((label, i) => {
+    const group = acts.filter((a) => (a.subgroup ?? '') === label);
+    for (const a of group) rows.push({ kind: 'act', a });
+    rows.push({ kind: 'subtotal', label: label || 'Otras partidas', total: group.reduce((t, a) => t + activityCost(a), 0), last: i === labels.length - 1 });
+  });
+  return rows;
 }

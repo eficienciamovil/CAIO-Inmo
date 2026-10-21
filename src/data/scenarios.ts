@@ -1,6 +1,10 @@
 import type { ScenarioInput } from '../engine/types';
 import { BASE_SCENARIO } from './defaults';
 
+/**
+ * Dos escenarios con los MISMOS costos (inversión inicial USD 25.000 + OpEx anual USD 22.000 = USD 47.000 en el año 1).
+ * Sólo cambia el beneficio: el crecimiento de ventas atribuible a la IA sobre las 360 ventas anuales actuales.
+ */
 function variant(id: string, name: string, description: string, mutate: (s: ScenarioInput) => void): ScenarioInput {
   const s = structuredClone(BASE_SCENARIO);
   s.id = id;
@@ -18,38 +22,21 @@ const setTarget = (s: ScenarioInput, id: string, target: number) => {
 export const CONSERVADOR = variant(
   'conservador',
   'Conservador',
-  'Menor automatización, recuperación y conversión; adopción del 50%; la capacidad liberada no se monetiza.',
+  'Meta práctica del informe AMBA: +2,5% de ventas (9 ventas adicionales por año × USD 4.500).',
   (s) => {
-    s.voice.aiHandledPct = 75;
-    s.whatsapp.aiCoveragePct = 75;
-    s.value.recoveryPct = 50;
-    s.value.usefulLeadPct = 25;
-    s.value.visitToClosePct = 4;
-    s.value.marginPerOperation = 1500;
-    s.value.capacityTreatment = 'no_monetizar';
-    setTarget(s, 'uso_activo', 50);
-    s.rollout.benefitRampMonths = 9;
+    s.value.salesGrowthPct = 2.5;
+    setTarget(s, 'uso_activo', 60);
   },
 );
-
-export const BASE = variant('base', 'Base', BASE_SCENARIO.description, () => {});
 
 export const OPTIMISTA = variant(
   'optimista',
   'Optimista',
-  'Alta automatización y adopción (85%), mejor conversión y margen, mejora de visitas del 5% por mejor calificación.',
+  'Supuesto optimista: +5% de ventas (18 ventas adicionales por año × USD 4.500).',
   (s) => {
-    s.voice.aiHandledPct = 95;
-    s.whatsapp.aiCoveragePct = 95;
-    s.value.recoveryPct = 80;
-    s.value.usefulLeadPct = 33;
-    s.value.visitToClosePct = 7;
-    s.value.marginPerOperation = 2200;
-    s.value.visitUpliftPct = 5;
-    s.value.productiveUsePct = 50;
+    s.value.salesGrowthPct = 5;
     setTarget(s, 'uso_activo', 85);
-    s.rollout.benefitRampMonths = 6;
   },
 );
 
-export const DEFAULT_SCENARIOS: ScenarioInput[] = [CONSERVADOR, BASE, OPTIMISTA];
+export const DEFAULT_SCENARIOS: ScenarioInput[] = [CONSERVADOR, OPTIMISTA];

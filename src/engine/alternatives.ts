@@ -16,6 +16,11 @@ export function applyAlternative(input: ScenarioInput, alt: AlternativeId): Scen
   const s = structuredClone(input);
   if (alt === 'completa') return s;
   if (alt === 'parcial') {
+    // Sin voz, el crecimiento de ventas se reduce en proporción a la cobertura IA que se pierde.
+    const calls = s.voice.callMode === 'por_sucursal' ? s.voice.inboundPerBranch * s.general.branches : s.voice.inboundCalls;
+    const full = (s.voice.enabled ? calls * s.voice.aiHandledPct : 0) + (s.whatsapp.enabled ? s.whatsapp.inboundConversations * s.whatsapp.aiCoveragePct : 0);
+    const partial = s.whatsapp.enabled ? s.whatsapp.inboundConversations * s.whatsapp.aiCoveragePct : 0;
+    s.value.salesGrowthPct = full > 0 ? (s.value.salesGrowthPct * partial) / full : 0;
     s.voice.enabled = false;
     s.eleven.subscriptionActive = false;
     s.activities = s.activities.filter((a) => !VOICE_KEYWORDS.some((k) => a.name.toLowerCase().includes(k)));
@@ -32,6 +37,7 @@ export function applyAlternative(input: ScenarioInput, alt: AlternativeId): Scen
   s.training.trainNewHires = false;
   s.otherVariable = { llmPer1kInteractions: 0, transcriptionPerMin: 0, storageMonthly: 0 };
   s.value.benefitMode = 'modelo';
+  s.value.salesGrowthPct = 0;
   s.value.avoidableCostsMonthly = 0;
   s.value.visitUpliftPct = 0;
   return s;

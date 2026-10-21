@@ -218,7 +218,7 @@ describe('WhatsApp', () => {
 });
 
 describe('Valor económico', () => {
-  const drivers = { inboundCalls: 1000, aiCallPct: 90, waInbound: 500, waAiPct: 90, transferPct: 20, adoptionPct: 100 };
+  const drivers = { inboundCalls: 1000, aiCallPct: 90, waInbound: 500, waAiPct: 90, transferPct: 20, adoptionPct: 100, branches: 10 };
 
   it('con plantilla constante, las horas liberadas NO son ahorro de nómina', () => {
     const v = computeValue({ ...BASE_SCENARIO.value, staffKept: true, capacityTreatment: 'no_monetizar', avoidableCostsMonthly: 0 }, drivers);
@@ -241,7 +241,8 @@ describe('Valor económico', () => {
 
   it('la contribución usa margen por operación, no facturación', () => {
     const v = computeValue({ ...BASE_SCENARIO.value, adoptionDependencyPct: 0 }, drivers);
-    expect(v.contributionMonthly).toBeCloseTo(v.extraOperations * BASE_SCENARIO.value.marginPerOperation, 6);
+    expect(v.margin).toBe(4500);
+    expect(v.contributionMonthly).toBeCloseTo(v.extraOperations * 4500, 6);
   });
 
   it('factor de adopción explícito', () => {
@@ -286,11 +287,15 @@ describe('Finanzas', () => {
     expect(breakEven(1000, 0, 0, 12).operationsTotal).toBeNull();
   });
 
-  it('costo del año 1 = suma de 12 meses, no OpEx × 12', () => {
+  it('costo del año 1 = inversión inicial + OpEx anual; la caja del año 1 respeta arranques y rampas', () => {
     const r = simulate(clone());
+    expect(r.consolidated.costYear1).toBeCloseTo(r.consolidated.initialInvestment + r.consolidated.opexAnnualSteady, 6);
     const sum12 = r.months.slice(0, 12).reduce((a, m) => a + m.totalCost, 0);
-    expect(r.consolidated.costYear1).toBeCloseTo(sum12, 6);
-    expect(r.consolidated.opexYear1).toBeLessThan(r.consolidated.opexAnnualSteady);
+    expect(r.consolidated.cashYear1).toBeCloseTo(sum12, 6);
+    const ramp = clone();
+    ramp.rollout = { whatsappStartMonth: 2, voiceStartMonth: 4, rampMonths: 3, benefitStartMonth: 3, benefitRampMonths: 6 };
+    const rr = simulate(ramp);
+    expect(rr.consolidated.cashYear1).toBeLessThan(rr.consolidated.costYear1);
   });
 
   it('el ROI del simulador coincide con la fórmula sobre la serie', () => {
@@ -306,7 +311,7 @@ describe('Robustez', () => {
   it('división por cero → null, nunca Infinity', () => {
     expect(safeDiv(1, 0)).toBeNull();
     const s = clone();
-    s.value.marginPerOperation = 0;
+    s.value.averagePrice = 0;
     s.voice.enabled = false;
     s.whatsapp.enabled = false;
     const r = simulate(s);
@@ -340,7 +345,7 @@ describe('Robustez', () => {
 
   it('el ROI negativo genera alerta crítica', () => {
     const s = clone();
-    s.value.marginPerOperation = 0;
+    s.value.averagePrice = 0;
     s.value.capacityTreatment = 'no_monetizar';
     const r = simulate(s);
     expect(r.finance.roiHorizon!).toBeLessThan(0);
@@ -382,10 +387,11 @@ describe('Cultura y gobernanza', () => {
 });
 
 describe('Escenarios y alternativas', () => {
-  it('los tres escenarios se ordenan conservador < base < optimista en beneficio neto', () => {
-    const [c, b, o] = DEFAULT_SCENARIOS.map((s) => simulate(s).finance.netHorizon);
-    expect(c).toBeLessThan(b);
-    expect(b).toBeLessThan(o);
+  it('dos escenarios: mismos costos, el optimista con más beneficio', () => {
+    expect(DEFAULT_SCENARIOS.map((s) => s.name)).toEqual(['Conservador', 'Optimista']);
+    const [c, o] = DEFAULT_SCENARIOS.map((s) => simulate(s));
+    expect(c.consolidated.costYear1).toBeCloseTo(o.consolidated.costYear1, 6);
+    expect(c.finance.netHorizon).toBeLessThan(o.finance.netHorizon);
   });
 
   it('sistema actual: costo y beneficio incremental cero', () => {
@@ -415,6 +421,52 @@ describe('Exportación', () => {
     expect(csv.startsWith('﻿')).toBe(true);
     expect(csv).toContain('"Mes 36"');
     expect(csv).toContain('DATOS NO CONFIRMADOS');
-    expect(csv).toContain('"Inversión inicial";25200,00');
+    expect(csv).toContain('"Inversión inicial";25000,00');
+  });
+});
+
+describe('Cifras pedidas para la defensa (presentación + informe AMBA)', () => {
+  it('inversión inicial 25.000 + OpEx anual 22.000 = costo año 1 47.000', () => {
+    for (const sc of DEFAULT_SCENARIOS) {
+      const c = simulate(sc).consolidated;
+      expect(c.initialInvestment).toBe(25000);
+      expect(Math.round(c.opexAnnualSteady)).toBe(22000);
+      expect(Math.round(c.costYear1)).toBe(47000);
+      expect(Math.round((c.fixedMonthly + c.semifixedMonthly) * 12)).toBe(14983);
+    }
+  });
+
+  it('contribución por venta 6.000 × (1 − 25%) = 4.500; después del 35%: 2.925', () => {
+    const v = simulate(clone()).value;
+    expect(v.margin).toBe(4500);
+    expect(v.marginAfterTax).toBeCloseTo(2925, 6);
+  });
+
+  it('conservador: 9 ventas adicionales/año → beneficio bruto 40.500; optimista: 18 → 81.000', () => {
+    const [c, o] = DEFAULT_SCENARIOS.map((s) => simulate(s));
+    expect(c.value.extraOperations * 12).toBeCloseTo(9, 6);
+    expect(c.value.grossAnnual).toBeCloseTo(40500, 6);
+    expect(o.value.extraOperations * 12).toBeCloseTo(18, 6);
+    expect(o.value.grossAnnual).toBeCloseTo(81000, 6);
+  });
+
+  it('ventas para recuperar 47.000: 11 antes de impuestos y 17 después (9 por año en 24 meses)', () => {
+    const rec = simulate(clone()).finance.recovery;
+    expect(rec.salesPreTax).toBe(11);
+    expect(rec.salesAfterTax).toBe(17);
+    expect(rec.salesPerYearAfterTax).toBe(9);
+  });
+});
+
+describe('Recuperación', () => {
+  it('si el flujo acumulado nunca es negativo, se recupera en el mes 1', () => {
+    expect(paybackMonth([10, 10])).toBe(1);
+  });
+
+  it('conservador recupera dentro de 24 meses y optimista antes', () => {
+    const [c, o] = DEFAULT_SCENARIOS.map((s) => simulate(s).finance.paybackMonth);
+    expect(c).not.toBeNull();
+    expect(c!).toBeLessThanOrEqual(24);
+    expect(o!).toBeLessThan(c!);
   });
 });

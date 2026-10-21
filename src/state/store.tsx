@@ -4,7 +4,7 @@ import { simulate, type ScenarioResult } from '../engine/simulate';
 import { DEFAULT_SCENARIOS } from '../data/scenarios';
 
 const STORAGE_KEY = 'inmo-ia-simulador:v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 interface Persisted {
   version: number;
@@ -62,7 +62,7 @@ export function isScenario(x: unknown): x is ScenarioInput {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const initial = useMemo(() => load(), []);
   const [scenarios, setScenarios] = useState<ScenarioInput[]>(initial?.scenarios ?? structuredClone(DEFAULT_SCENARIOS));
-  const [activeId, setActiveId] = useState<string>(initial?.activeId ?? 'base');
+  const [activeId, setActiveId] = useState<string>(initial?.activeId ?? 'conservador');
   const [savedAt, setSavedAt] = useState<string | null>(initial?.savedAt ?? null);
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     resetAll: () => {
       setScenarios(structuredClone(DEFAULT_SCENARIOS));
-      setActiveId('base');
+      setActiveId('conservador');
     },
     duplicateActive: (name) => {
       const copy = structuredClone(active);

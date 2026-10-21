@@ -34,18 +34,16 @@ export default function Scenarios() {
 
   const metrics: [string, (r: ScenarioResult) => string, ((r: ScenarioResult) => number | null)?][] = [
     ['Inversión inicial', (r) => fmtUSD(r.consolidated.initialInvestment, false)],
-    ['OpEx mensual (régimen)', (r) => fmtUSD(r.consolidated.opexMonthly, false)],
-    ['Costo año 1', (r) => fmtUSD(r.consolidated.costYear1, false)],
+    ['OpEx anual (fijos + semifijos + variables)', (r) => fmtUSD(r.consolidated.opexAnnualSteady, false)],
+    ['Costo total año 1', (r) => fmtUSD(r.consolidated.costYear1, false)],
+    ['Crecimiento de ventas por IA', (r) => fmtPct(r.input.value.salesGrowthPct)],
+    ['Ventas adicionales por año', (r) => fmtNum(r.value.extraOperations * 12)],
+    ['Contribución por venta (antes de impuestos)', (r) => fmtUSD(r.value.margin, false)],
     ['Beneficio bruto anual', (r) => fmtUSD(r.value.grossAnnual, false)],
-    ['Beneficio neto anual', (r) => fmtUSD(r.finance.netAnnualSteady, false), (r) => r.finance.netAnnualSteady],
-    ['ROI acumulado', (r) => `${fmtPct(r.finance.roiHorizon)} (${r.input.general.horizonMonths} m)`, (r) => r.finance.roiHorizon],
-    ['Payback', (r) => (r.finance.paybackMonth === null ? 'no se recupera' : `${r.finance.paybackMonth} meses`)],
-    ['VAN', (r) => fmtUSD(r.finance.npv, false), (r) => r.finance.npv],
-    ['TIR anual', (r) => fmtPct(r.finance.irr), (r) => r.finance.irr],
-    ['Operaciones adicionales/mes', (r) => fmtNum(r.value.extraOperations)],
-    ['Operaciones/mes para cubrir la inversión', (r) => fmtNum(r.finance.breakEven.operationsPerMonth)],
-    ['Adopción usada', (r) => `${fmtPct(r.adoption.value)} (${r.adoption.source})`],
-    ['Decisión de la puerta', (r) => r.decision.decision],
+    ['Beneficio neto anual (bruto − OpEx)', (r) => fmtUSD(r.finance.netAnnualSteady, false), (r) => r.finance.netAnnualSteady],
+    ['Ventas para recuperar el año 1 (antes / después de impuestos)', (r) => `${r.finance.recovery.salesPreTax ?? 'n/d'} / ${r.finance.recovery.salesAfterTax ?? 'n/d'}`],
+    ['Recuperación', (r) => (r.finance.paybackMonth === null ? 'no se recupera' : `${r.finance.paybackMonth} meses`)],
+    ['ROI acumulado', (r) => `${fmtPct(r.finance.roiHorizon)} (${r.input.general.horizonMonths} meses)`, (r) => r.finance.roiHorizon],
   ];
 
   return (

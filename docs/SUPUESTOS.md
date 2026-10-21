@@ -30,7 +30,7 @@ La pestaña **Supuestos** de la aplicación calcula en vivo cuánto del costo de
 
 | Concepto | Valor | Estado | Pendiente |
 |---|---|---|---|
-| Retell AI | USD 0,159/min | Confirmado (captura) | Confirmar qué componentes incluye: LLM, voz, telefonía |
+| Retell AI | USD 0,118/min (captura original: 0,159) | Confirmado | Confirmar la tarifa vigente y qué incluye: LLM, voz, telefonía |
 | Google One | USD 10/mes | Confirmado | — |
 | ElevenLabs Starter | USD 6/mes, 75 min | Confirmado | El excedente por minuto es un supuesto |
 | Evolution API | USD 83 | Supuesto | **Periodicidad no confirmada** (mensual, anual o única) |
@@ -54,22 +54,31 @@ La pestaña **Supuestos** de la aplicación calcula en vivo cuánto del costo de
 - **Capacidad monetizada**: 40% de las horas liberadas. Requiere una hipótesis verificable.
 - **Dependencia del beneficio respecto de la adopción**: 40%.
 - **Adopción objetivo**: 75% de uso activo. Indicadores culturales, de CX y psicosociales de base: valores ilustrativos hasta aplicar la encuesta inicial.
-- **Arranques y rampas**: WhatsApp en el mes 2, voz en el mes 4, beneficios desde el mes 3 con 6 meses de rampa.
+- **Arranques**: todos los costos desde el mes 1. Los beneficios arrancan en el mes 4 (piloto de voz) sin rampa.
 
-## Lectura del escenario Base con estos supuestos
+## Escenarios para la defensa
 
-Valores verificados con `npm test` y en la interfaz:
+Los dos escenarios tienen los **mismos costos** y difieren solo en el crecimiento de ventas atribuible a la IA. Valores verificados con `npm test`:
 
-| Indicador | Valor |
-|---|---|
-| Inversión inicial | USD 25.200 (25.000 de CapEx + 200 de cartelería QR) |
-| OpEx en régimen | ≈ USD 1.785/mes (≈ 21.400/año), cercano a los 22.000 de la presentación |
-| Costo del año 1 | ≈ USD 41.500, por la rampa de arranque |
-| Beneficio bruto | ≈ USD 30.600/año, cercano a los 30.000 de la presentación |
-| ROI a 36 meses | −4,6% |
-| Payback | no se recupera dentro de los 36 meses |
+| Indicador | Conservador | Optimista |
+|---|---|---|
+| Inversión inicial | USD 25.000 | USD 25.000 |
+| OpEx anual (14.983 fijos y semifijos + 7.017 variables) | USD 22.000 | USD 22.000 |
+| Costo total año 1 | USD 47.000 | USD 47.000 |
+| Crecimiento de ventas (sobre 360/año) | 2,5% → 9 ventas | 5% → 18 ventas |
+| Contribución por venta: 120.000 × 5% × (1 − 25%) | USD 4.500 | USD 4.500 |
+| Beneficio bruto anual | USD 40.500 | USD 81.000 |
+| Beneficio neto anual (bruto − OpEx) | USD 18.500 | USD 59.000 |
+| Ventas para recuperar 47.000 (antes / después del 35%) | 11 / 17 | 11 / 17 |
+| Recuperación (beneficios desde el mes 4) | 23 meses | 9 meses |
+| ROI a 24 meses | 2,7% | 105,4% |
 
-**Conclusión para el CFO:** con beneficios de ~30.000 brutos y OpEx de ~22.000, el proyecto queda en el umbral de rentabilidad. La decisión depende sobre todo de la **conversión comercial**, el **margen por operación** y la **tasa de automatización**, que son las variables de mayor impacto en el tornado de sensibilidad. Esto refuerza el modelo de gates *kill-fast*: liberar fondos solo cuando el piloto demuestre esos valores.
+El escenario Conservador replica el informe "Inmobiliaria AMBA": 9 ventas adicionales por año como meta práctica, recuperación en unos 24 meses y 17 ventas después de impuestos. El 5% del Optimista es un supuesto, no figura en el informe.
+
+Para llegar a USD 22.000 de OpEx, las llamadas y WhatsApp quedaron calibrados así:
+- Retell a USD 0,118/min;
+- 1.500 llamadas entrantes y 250 salientes por mes;
+- 330 mensajes de marketing y 1.500 de utilidad de WhatsApp por mes.
 
 ## Versiones futuras (fuera de alcance)
 

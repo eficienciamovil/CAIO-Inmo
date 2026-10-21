@@ -14,6 +14,18 @@ export interface ValueDrivers {
   transferPct: number;
   /** Adopción efectiva del equipo (0–100). */
   adoptionPct: number;
+  /** Sucursales (para las ventas actuales en modo crecimiento). */
+  branches: number;
+}
+
+/** Contribución por venta antes de impuestos = precio × comisión × (1 − costos variables). */
+export function contributionPerOperation(cfg: ValueConfig): number {
+  return Math.max(0, cfg.averagePrice) * (Math.max(0, cfg.commissionPct) / 100) * (1 - clamp(cfg.variableCostPct, 0, 100) / 100);
+}
+
+/** Contribución por venta después del impuesto supuesto. */
+export function contributionAfterTax(cfg: ValueConfig): number {
+  return contributionPerOperation(cfg) * (1 - clamp(cfg.taxRatePct, 0, 100) / 100);
 }
 
 export interface FunnelSnapshot {
@@ -27,6 +39,11 @@ export interface FunnelSnapshot {
 }
 
 export interface ValueResult {
+  /** Contribución por venta antes y después de impuestos. */
+  margin: number;
+  marginAfterTax: number;
+  /** Ventas actuales por mes (modo crecimiento). */
+  baseSalesMonthly: number;
   inquiries: number;
   automatedInquiries: number;
   aiCoverageShare: number;
@@ -72,6 +89,8 @@ export function adoptionFactor(dependencyPct: number, adoptionPct: number): numb
 
 export function computeValue(cfg: ValueConfig, d: ValueDrivers): ValueResult {
   const pct = (x: number) => clamp(x, 0, 100) / 100;
+  const margin = contributionPerOperation(cfg);
+  const baseSalesMonthly = Math.max(0, cfg.salesPerBranchMonthly) * Math.max(0, d.branches);
   const inquiries = Math.max(0, d.inboundCalls) + Math.max(0, d.waInbound);
   const automatedInquiries = d.inboundCalls * pct(d.aiCallPct) + d.waInbound * pct(d.waAiPct);
   const aiCoverageShare = safeDiv(automatedInquiries, inquiries) ?? 0;
@@ -90,7 +109,9 @@ export function computeValue(cfg: ValueConfig, d: ValueDrivers): ValueResult {
   const extraLeads = recoveredInquiries * pct(cfg.usefulLeadPct);
   const extraVisitsRecovered = extraLeads * pct(cfg.leadToVisitPct);
   const extraVisitsUplift = visitsBase * Math.max(0, cfg.visitUpliftPct) / 100;
-  const extraOperations = (extraVisitsRecovered + extraVisitsUplift) * pct(cfg.visitToClosePct);
+  const extraOperations = cfg.benefitMode === 'crecimiento'
+    ? baseSalesMonthly * Math.max(0, cfg.salesGrowthPct) / 100
+    : (extraVisitsRecovered + extraVisitsUplift) * pct(cfg.visitToClosePct);
 
   // Horas liberadas: sólo consultas en horario que antes atendía una persona y que la IA resuelve sin derivar
   const businessShare = 1 - pct(cfg.pctOffHours);
@@ -131,7 +152,7 @@ export function computeValue(cfg: ValueConfig, d: ValueDrivers): ValueResult {
       capacity = 0;
       capacityNot = freedHoursValueMonthly;
     }
-    contribution = extraOperations * Math.max(0, cfg.marginPerOperation);
+    contribution = extraOperations * margin;
     avoidable *= factor;
     capacity *= factor;
     contribution *= factor;
@@ -141,14 +162,15 @@ export function computeValue(cfg: ValueConfig, d: ValueDrivers): ValueResult {
       : 'Reducción de estructura: las horas liberadas se valoran como costo evitable.';
   }
 
-  const contributionBase = opsBase * Math.max(0, cfg.marginPerOperation);
+  const opsBaseline = cfg.benefitMode === 'crecimiento' ? baseSalesMonthly : opsBase;
+  const contributionBase = opsBaseline * margin;
   const baseline: FunnelSnapshot = {
     inquiriesHandled: handledBaseline,
     inquiriesLost: lostBaseline,
     receptionHours: receptionHoursBase,
     usefulLeads: leadsBase,
     visits: visitsBase,
-    operations: opsBase,
+    operations: opsBaseline,
     contribution: contributionBase,
   };
   const withAI: FunnelSnapshot = {
@@ -157,11 +179,14 @@ export function computeValue(cfg: ValueConfig, d: ValueDrivers): ValueResult {
     receptionHours: Math.max(0, receptionHoursBase - freedHoursMonthly),
     usefulLeads: leadsBase + extraLeads,
     visits: visitsBase + extraVisitsRecovered + extraVisitsUplift,
-    operations: opsBase + extraOperations,
-    contribution: contributionBase + extraOperations * Math.max(0, cfg.marginPerOperation),
+    operations: opsBaseline + extraOperations,
+    contribution: contributionBase + extraOperations * margin,
   };
 
   return {
+    margin,
+    marginAfterTax: contributionAfterTax(cfg),
+    baseSalesMonthly,
     inquiries,
     automatedInquiries,
     aiCoverageShare,

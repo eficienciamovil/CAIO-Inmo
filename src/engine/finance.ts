@@ -15,6 +15,8 @@ export function paybackMonth(netFlows: number[]): number | null {
     if (cum < 0) invested = true;
     if (invested && cum >= 0) return i + 1;
   }
+  // El flujo acumulado nunca fue negativo: la inversión se cubre desde el primer mes.
+  if (!invested && netFlows.length > 0 && cum >= 0) return 1;
   return null;
 }
 

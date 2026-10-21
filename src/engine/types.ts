@@ -45,6 +45,8 @@ export interface CapexActivity {
   recurrence: 'unico' | 'recurrente';
   /** Marca la partida de formación inicial (para evitar doble conteo con el bloque de capacitación). */
   isTraining?: boolean;
+  /** Subgrupo dentro de la etapa: se muestra con subtotal propio. */
+  subgroup?: string;
   status: DataStatus;
 }
 
@@ -184,10 +186,25 @@ export interface RolloutConfig {
 export type CapacityTreatment = 'no_monetizar' | 'monetizar_productividad' | 'ya_en_ventas';
 
 export interface ValueConfig {
-  /** 'modelo' = cálculo trazable; 'presentacion' = usa las cifras de la diapositiva 9. */
-  benefitMode: 'modelo' | 'presentacion';
+  /**
+   * 'crecimiento'  = ventas adicionales como % de crecimiento sobre las ventas actuales (informe AMBA).
+   * 'modelo'       = ventas adicionales por embudo de consultas recuperadas.
+   * 'presentacion' = cifras de la diapositiva 9.
+   */
+  benefitMode: 'crecimiento' | 'modelo' | 'presentacion';
   presentationSavingsAnnual: number;
   presentationOpportunitiesAnnual: number;
+
+  /** Ventas actuales por sucursal y por mes (sin IA). */
+  salesPerBranchMonthly: number;
+  /** Crecimiento de ventas atribuible a la IA (% sobre las ventas actuales). */
+  salesGrowthPct: number;
+  averagePrice: number;
+  commissionPct: number;
+  /** Costos variables de la inmobiliaria sobre los ingresos (%). */
+  variableCostPct: number;
+  /** Impuesto a las ganancias supuesto (%). */
+  taxRatePct: number;
 
   pctOffHours: number;
   pctLostOffHours: number;
@@ -195,7 +212,6 @@ export interface ValueConfig {
   usefulLeadPct: number;
   leadToVisitPct: number;
   visitToClosePct: number;
-  marginPerOperation: number;
 
   /** Mejora relativa de visitas sobre la línea base por mejor calificación/agenda (no incluye leads recuperados). */
   visitUpliftPct: number;

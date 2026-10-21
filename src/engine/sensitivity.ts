@@ -44,8 +44,15 @@ export const SENSITIVITY_VARS: SensitivityVar[] = [
     },
   },
   { id: 'adopcion', label: 'Adopción por empleados', apply: setAdoption },
-  { id: 'conversion', label: 'Conversión comercial', apply: (s, f) => { s.value.visitToClosePct = Math.min(100, s.value.visitToClosePct * f); } },
-  { id: 'margen', label: 'Margen por operación', apply: (s, f) => { s.value.marginPerOperation *= f; } },
+  {
+    id: 'conversion',
+    label: 'Conversión / crecimiento de ventas',
+    apply: (s, f) => {
+      s.value.visitToClosePct = Math.min(100, s.value.visitToClosePct * f);
+      s.value.salesGrowthPct *= f;
+    },
+  },
+  { id: 'margen', label: 'Contribución por venta', apply: (s, f) => { s.value.averagePrice *= f; } },
   {
     id: 'capacitacion',
     label: 'Costos de capacitación',

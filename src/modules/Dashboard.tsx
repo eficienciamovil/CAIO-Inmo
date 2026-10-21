@@ -1,19 +1,18 @@
 import { useMemo } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
 import { useStore } from '../state/store';
-import { Card, Grid, Kpi, Note, PageHeader, Stat, Money } from '../components/ui';
+import { Grid, Kpi, Note, PageHeader } from '../components/ui';
 import { AXIS, BENEFIT, ChartFrame, COST, GOLD, GRID, Legend, SERIES, STATUS, UsdTooltip, usdTick } from '../components/charts';
 import { classifyResult, fmtNum, fmtPct, fmtUSD } from '../engine/money';
-import { computeAlerts, type Alert } from '../engine/alerts';
+import type { Alert } from '../engine/alerts';
 import { sensitivity } from '../engine/sensitivity';
 import { linearProjection } from '../engine/culture';
-import { PRESENTACION, brechaFinanciamiento, totalGates } from '../data/referencia';
+import { PRESENTACION } from '../data/referencia';
 import QuickControls from '../components/QuickControls';
 
 export default function Dashboard() {
   const { active, result: r } = useStore();
   const { consolidated: c, finance: f, value: v } = r;
-  const alerts = useMemo(() => computeAlerts(r), [r]);
   const tornado = useMemo(() => sensitivity(active, 20, 'roi'), [active]);
   const H = active.general.horizonMonths;
 
@@ -47,8 +46,8 @@ export default function Dashboard() {
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">1 · Cuánto cuesta</h3>
         <Grid cols={3}>
           <Kpi label="Inversión inicial" value={fmtUSD(c.initialInvestment, false)} period="unico" explain={r.explain.inversion} hint={`Presentación: ${fmtUSD(PRESENTACION.capex, false)}`} />
-          <Kpi label="Costo mensual (régimen)" value={fmtUSD(c.opexMonthly, false)} period="mensual" explain={r.explain.opexMensual} hint={`${fmtUSD(c.opexAnnualSteady, false)}/año · presentación ${fmtUSD(PRESENTACION.opexAnual, false)}`} />
-          <Kpi label="Costo del primer año" value={fmtUSD(c.costYear1, false)} period="anual" explain={r.explain.costoAnio1} hint={`Presentación: ${fmtUSD(PRESENTACION.inversionAnio1, false)}`} />
+          <Kpi label="OpEx anual (fijos + variables)" value={fmtUSD(c.opexAnnualSteady, false)} period="anual" explain={r.explain.opexMensual} hint={`Presentación: ${fmtUSD(PRESENTACION.opexAnual, false)}`} />
+          <Kpi label="Costo del primer año" value={fmtUSD(c.costYear1, false)} period="anual" explain={r.explain.costoAnio1} hint={`${fmtUSD(c.initialInvestment, false)} + ${fmtUSD(c.opexAnnualSteady, false)}`} />
         </Grid>
       </section>
 
@@ -73,37 +72,6 @@ export default function Dashboard() {
         </Grid>
       </section>
 
-      <AlertList alerts={alerts} />
-
-      {/* Presentación vs modelo */}
-      <Card title="Presentación vs. modelo trazable" subtitle="Las cifras de la presentación son hipótesis originales. El simulador las contrasta con un cálculo verificable.">
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wider text-gold-400">Presupuesto (diap. 9–10)</p>
-            <Stat label="Presupuesto original de referencia"><Money value={PRESENTACION.presupuestoOriginal} decimals={false} /></Stat>
-            <Stat label="Revisado año 1 (CapEx + OpEx)"><Money value={PRESENTACION.inversionAnio1} decimals={false} /></Stat>
-            <Stat label="Liberación por gates G1+G2+G3"><Money value={totalGates} decimals={false} /></Stat>
-            <Stat label="Brecha sin financiamiento asignado"><span className="text-amber-300"><Money value={brechaFinanciamiento} decimals={false} /></span></Stat>
-            <Stat label="Costo año 1 según el modelo"><Money value={c.costYear1} decimals={false} /></Stat>
-          </div>
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wider text-gold-400">Beneficio (diap. 9)</p>
-            <Stat label="Declarado como 'Ahorro Neto Directo'"><Money value={PRESENTACION.beneficioDeclarado} decimals={false} /></Stat>
-            <Stat label="Clasificación correcta">Beneficio bruto</Stat>
-            <Stat label="Neto con el OpEx de la presentación"><Money value={PRESENTACION.beneficioDeclarado - PRESENTACION.opexAnual} decimals={false} signed /></Stat>
-            <Stat label="Bruto según el modelo"><Money value={v.grossAnnual} decimals={false} /></Stat>
-            <Stat label="Neto según el modelo"><Money value={f.netAnnualSteady} decimals={false} signed /></Stat>
-          </div>
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wider text-gold-400">"Cubre el 63% de la inversión"</p>
-            <Stat label="30.000 / 47.000 (bruto)">{fmtPct((PRESENTACION.beneficioDeclarado / PRESENTACION.inversionAnio1) * 100)}</Stat>
-            <Stat label="(30.000 − 22.000) / 25.000 (neto vs CapEx)">{fmtPct(((PRESENTACION.beneficioDeclarado - PRESENTACION.opexAnual) / PRESENTACION.capex) * 100)}</Stat>
-            <Stat label="Payback implícito de la presentación">{fmtNum(PRESENTACION.capex / (PRESENTACION.beneficioDeclarado - PRESENTACION.opexAnual))} años</Stat>
-            <Stat label="Modelo: beneficios año 1 / costo año 1">{fmtPct(c.costYear1 > 0 ? (f.benefitsYear1 / c.costYear1) * 100 : null)}</Stat>
-          </div>
-        </div>
-      </Card>
-
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartFrame title="CapEx por etapa" subtitle="Inversión única por etapa de la hoja de ruta (USD)">
           <BarChart data={capexData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -115,8 +83,8 @@ export default function Dashboard() {
           </BarChart>
         </ChartFrame>
 
-        <ChartFrame title="OpEx mensual por categoría" subtitle="Régimen, después de la rampa (USD/mes)">
-          <BarChart data={c.opexByCategory} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+        <ChartFrame title="OpEx anual por categoría" subtitle="OpEx anual por categoría (USD/año)">
+          <BarChart data={c.opexByCategory.map((x) => ({ ...x, value: x.value * 12 }))} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
             <CartesianGrid {...GRID} horizontal={false} vertical />
             <XAxis type="number" tickFormatter={usdTick} {...AXIS} />
             <YAxis type="category" dataKey="name" {...AXIS} width={150} />
