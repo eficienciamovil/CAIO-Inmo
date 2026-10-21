@@ -1,5 +1,5 @@
 import { useStore } from '../state/store';
-import { Button, Card, CellNumber, CellText, Grid, Kpi, Money, Note, NumberField, PageHeader, Select, STATUS_OPTIONS, Stat, StatusBadge, Table, Toggle, statusLabel } from '../components/ui';
+import { Button, Card, CellNumber, CellText, Money, Note, NumberField, PageHeader, Select, STATUS_OPTIONS, Stat, StatusBadge, Table, Toggle, statusLabel } from '../components/ui';
 import { effectiveQuantity } from '../engine/fixedCosts';
 import { fmtNum, fmtUSD } from '../engine/money';
 import type { CostLine, DataStatus, ElevenPlan, Periodicity } from '../engine/types';
@@ -16,6 +16,8 @@ export default function FixedCosts() {
   const { active, update, result: r } = useStore();
   const drivers = { employees: active.general.employees, branches: active.general.branches };
   const t = r.training;
+  const monthlyTotal = r.consolidated.fixedMonthly + r.consolidated.semifixedMonthly;
+  const tableMonthly = r.fixed.byLine.reduce((acc, l) => acc + l.monthly, 0);
 
   const setLine = (id: string, patch: Partial<CostLine>) =>
     update((s) => {
@@ -36,12 +38,34 @@ export default function FixedCosts() {
         equivalente mensual. No se inventan tarifas: los valores sin cotización están en 0 o marcados como <b>Demo</b>/<b>Supuesto</b>.
       </PageHeader>
 
-      <Grid cols={4}>
-        <Kpi label="Fijos" value={fmtUSD(r.consolidated.fixedMonthly)} period="mensual" hint="incluye abono ElevenLabs" />
-        <Kpi label="Semifijos" value={fmtUSD(r.consolidated.semifixedMonthly)} period="mensual" hint="incluye capacitación recurrente" />
-        <Kpi label="Fijos + semifijos" value={fmtUSD((r.consolidated.fixedMonthly + r.consolidated.semifixedMonthly) * 12, false)} period="anual" />
-        <Kpi label="Desembolsos únicos" value={fmtUSD(r.fixed.oneOffTotal)} period="unico" />
-      </Grid>
+      <section className="card rounded-xl border border-gold-500/40 bg-ink-900/80 p-5">
+        <h3 className="mb-4 text-base font-semibold text-white">Fijos + semifijos: de mensual a anual</h3>
+        <div className="grid items-stretch gap-3 text-center md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1.2fr]">
+          <div className="rounded-lg border border-ink-700 p-3">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">Fijos</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{fmtUSD(r.consolidated.fixedMonthly)}</p>
+            <p className="text-xs text-zinc-500">/mes · incluye abono ElevenLabs</p>
+          </div>
+          <span className="self-center text-2xl text-gold-400">+</span>
+          <div className="rounded-lg border border-ink-700 p-3">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">Semifijos</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{fmtUSD(r.consolidated.semifixedMonthly)}</p>
+            <p className="text-xs text-zinc-500">/mes · incluye capacitación recurrente</p>
+          </div>
+          <span className="self-center text-2xl text-gold-400">=</span>
+          <div className="rounded-lg border border-ink-600 bg-ink-850 p-3">
+            <p className="text-xs uppercase tracking-wider text-zinc-300">Subtotal mensual</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{fmtUSD(monthlyTotal)}</p>
+            <p className="text-xs text-zinc-500">/mes</p>
+          </div>
+          <span className="self-center text-2xl text-gold-400">× 12 =</span>
+          <div className="rounded-lg border border-gold-500/60 bg-gold-500/10 p-3">
+            <p className="text-xs uppercase tracking-wider text-gold-300">Total anual</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums text-gold-300">{fmtUSD(monthlyTotal * 12, false)}</p>
+            <p className="text-xs text-zinc-400">/año · va al OpEx del Consolidador</p>
+          </div>
+        </div>
+      </section>
 
       <Card
         title="Tabla de costos fijos y semifijos"
@@ -60,7 +84,34 @@ export default function FixedCosts() {
           </span>
         }
       >
-        <Table head={['Concepto', 'Proveedor', 'Cant.', 'Multiplicador', 'Precio unit.', 'Periodicidad', 'Desde mes', 'Mensual', 'Anual', 'Categoría', 'Estado', '']}>
+        <Table
+          head={['Concepto', 'Proveedor', 'Cant.', 'Multiplicador', 'Precio unit.', 'Periodicidad', 'Desde mes', 'Mensual', 'Anual', 'Categoría', 'Estado', '']}
+          foot={
+            <>
+              {[
+                { label: 'Subtotal de la tabla', m: tableMonthly, cls: 'text-zinc-200 font-medium' },
+                { label: '+ Abono ElevenLabs (fijo · ver abajo)', m: r.voice.elevenSubscription, cls: 'text-zinc-400 font-normal' },
+                { label: '+ Capacitación recurrente (semifijo · ver abajo)', m: t.recurringMonthly, cls: 'text-zinc-400 font-normal' },
+                { label: '+ Partidas recurrentes de etapas (CapEx)', m: r.capex.recurringMonthly, cls: 'text-zinc-400 font-normal' },
+              ]
+                .filter((x, i) => i === 0 || x.m > 0)
+                .map((x) => (
+                  <tr key={x.label} className={x.cls}>
+                    <td colSpan={7} className="px-2 py-1.5">{x.label}</td>
+                    <td className="whitespace-nowrap px-2 text-right"><Money value={x.m} /></td>
+                    <td className="whitespace-nowrap px-2 text-right"><Money value={x.m * 12} /></td>
+                    <td colSpan={3} />
+                  </tr>
+                ))}
+              <tr className="border-t border-gold-600/40 text-gold-300">
+                <td colSpan={7} className="px-2 py-2">= Total fijos + semifijos</td>
+                <td className="whitespace-nowrap px-2 text-right"><Money value={monthlyTotal} /></td>
+                <td className="whitespace-nowrap px-2 text-right"><Money value={monthlyTotal * 12} /></td>
+                <td colSpan={3} />
+              </tr>
+            </>
+          }
+        >
           {active.fixedLines.map((l) => {
             const b = r.fixed.byLine.find((x) => x.id === l.id)!;
             return (
